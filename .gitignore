@@ -54,9 +54,9 @@ Thumbs.db
 *.7z
 
 # Model files (optional - might want to track smaller models)
-# *.joblib
-# *.pkl
-# *.h5
+*.joblib
+*.pkl
+*.h5
 
 # Logs
 *.log

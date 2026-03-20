@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: cityflow_user
+      POSTGRES_PASSWORD: cityflow_password
+      POSTGRES_DB: cityflow_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  fastapi:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../cityflow_ml_lab/models:/app/models:ro
+    environment:
+      - DATABASE_URL=postgresql://cityflow_user:cityflow_password@db:5432/cityflow_db
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

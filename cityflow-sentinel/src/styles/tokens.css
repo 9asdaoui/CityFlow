@@ -1,0 +1,68 @@
+/* === CORE TOKENS — define these in src/styles/tokens.css and import in main.jsx === */
+
+:root {
+  /* Backgrounds */
+  --color-bg-base:        #05262D;   /* deep teal — page/map backdrop */
+  --color-bg-surface:     #0B5868;   /* panels, sidebars, cards */
+  --color-bg-elevated:    #0d6b80;   /* modals, dropdowns, hover rows */
+  --color-bg-input:       #042028;   /* inputs, textareas */
+  --color-bg-overlay:     rgba(5, 38, 45, 0.88); /* overlay on map panels */
+
+  /* Gold — primary accent */
+  --color-gold-500:       #968445;   /* primary buttons, active states */
+  --color-gold-400:       #b09d57;   /* hover on primary buttons */
+  --color-gold-300:       #FFE44B;   /* highlights, score gauges, badges */
+  --color-gold-100:       #F6F09C;   /* muted gold for secondary labels */
+
+  /* Teal — secondary accent */
+  --color-teal-400:       #A1E3D8;   /* data glows, active map ring, links */
+  --color-teal-200:       #c8f0ea;   /* teal badge text */
+  --color-teal-900:       #042028;   /* teal badge background */
+
+  /* Borders */
+  --color-border:         #0d4d5e;   /* default borders */
+  --color-border-strong:  #1a6d82;   /* focused inputs, hover borders */
+  --color-border-gold:    #968445;   /* active/focused gold borders */
+
+  /* Text */
+  --color-text-primary:   #F6F09C;   /* headings, important labels (warm gold-white) */
+  --color-text-secondary: #A1E3D8;   /* subtitles, table headers (teal) */
+  --color-text-muted:     #5a8a96;   /* disabled, metadata */
+  --color-text-inverse:   #05262D;   /* text on gold buttons */
+
+  /* Tension Score Scale (0–100) */
+  --color-tension-low:    #A1E3D8;   /* 0–33: calm */
+  --color-tension-mid:    #FFE44B;   /* 34–66: moderate */
+  --color-tension-high:   #e85d3a;   /* 67–100: critical */
+
+  /* Status */
+  --color-danger:         #e85d3a;   /* errors, critical alerts */
+  --color-danger-bg:      #2a0f07;
+  --color-danger-border:  #8b2a1a;
+  --color-warning:        #FFE44B;   /* warnings */
+  --color-success:        #A1E3D8;   /* ok states */
+
+  /* Typography */
+  --font-display: 'Rajdhani', 'Orbitron', sans-serif;  /* headings — geometric military */
+  --font-body:    'IBM Plex Mono', 'Courier New', monospace; /* body — data terminal feel */
+  --font-data:    'DM Mono', 'IBM Plex Mono', monospace;     /* numbers, scores */
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Radius — controlled, purposeful */
+  --radius-sm:  2px;
+  --radius:     4px;
+  --radius-lg:  8px;
+
+  /* Map */
+  --map-height: calc(100vh - 60px);  /* full viewport minus topbar */
+}

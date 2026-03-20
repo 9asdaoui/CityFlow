@@ -1,0 +1,15 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy service code and model assets (from repo root)
+COPY backend /app/backend
+COPY backend/app.py .
+COPY cityflow_ml_lab/models ./models
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

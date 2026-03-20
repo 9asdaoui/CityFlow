@@ -1,0 +1,459 @@
+ 
+CAHIER  DES  CHARGES  
+CityFlow
+ 
+Sentinel
+ 
+ 
+ 
+1.1
+ 
+Overview  
+Dans  les  zones  urbaines  en  forte  croissance,  les  "tensions"  liées  à  la  mobilité  
+(congestions,
+ 
+blocages)
+ 
+deviennent
+ 
+des
+ 
+points
+ 
+critiques.
+ 
+CityFlow
+ 
+Sentinel
+ 
+est
+ 
+une
+ 
+plateforme
+ 
+conçue
+ 
+pour
+ 
+aider
+ 
+les
+ 
+gestionnaires
+ 
+de
+ 
+ville
+ 
+à
+ 
+anticiper
+ 
+ces
+ 
+tensions
+ 
+grâce
+ 
+au
+ 
+Machine
+ 
+Learning
+ 
+et
+ 
+à
+ 
+consulter
+ 
+les
+ 
+réglementations
+ 
+complexes
+ 
+via
+ 
+un
+ 
+assistant
+ 
+intelligent
+ 
+(LLM/RAG).
+ 
+1.2
+ 
+Objectifs  ●  Prédire  :  Générer  un  "Score  de  Tension"  (0-100)  par  quartier  en  fonction  de  
+l'heure,
+ 
+de
+ 
+la
+ 
+météo
+ 
+et
+ 
+du
+ 
+calendrier.
+ 
+●  Analyser  :  Permettre  aux  utilisateurs  de  poser  des  questions  en  langage  naturel  
+sur
+ 
+les
+ 
+politiques
+ 
+urbaines
+ 
+et
+ 
+les
+ 
+protocoles
+ 
+d'urgence.
+ 
+●  Centraliser  :  Offrir  un  tableau  de  bord  unique  combinant  visualisation  prédictive  
+et
+ 
+consultation
+ 
+réglementaire.
+ 
+1.3
+ Public  Cible
+ 
+●  Directions  de  l'urbanisme  et  de  la  mobilité.  
+●  Services  de  transport  municipal.  
+●  Unités  d'intervention  d'urgence.
+ 
+ 
+ 
+
+ 
+  
+2.  Spéciﬁcations  Fonctionnelles  
+2.1
+ 
+Gestion  des  Utilisateurs
+ 
+●  Authentiﬁcation  :  Connexion  sécurisée  via  JWT  (JSON  Web  Tokens).  
+●  Proﬁls  :  Administrateur  (accès  complet)  et  Opérateur  (consultation  uniquement).
+ 
+2.2
+ 
+Dashboard  de  Prédiction  (Volet  ML)
+ 
+●  Visualisation  :  Carte  ou  graphique  aﬃchant  le  score  de  tension  prévu  pour  les  
+prochaines
+ 
+24h.
+ 
+●  Filtres  :  Possibilité  de  ﬁltrer  par  Quartier,  Jour  de  la  semaine  et  Tranche  horaire.  
+●  Historique  :  Comparaison  entre  les  tensions  prédites  et  les  données  passées.
+ 
+2.3
+ 
+Assistant  IA  Réglementaire  (Volet  LLM/RAG)
+ 
+●  Interface  Chat  :  Fenêtre  de  dialogue  pour  poser  des  questions.  
+●  Base  de  Connaissances  :  L'IA  répond  en  s'appuyant  exclusivement  sur  des  
+documents
+ 
+téléchargés
+ 
+(ex:
+ 
+"Code
+ 
+de
+ 
+la
+ 
+route
+ 
+local",
+ 
+"Manuel
+ 
+de
+ 
+gestion
+ 
+des
+ 
+crises").
+ 
+●  Citations  :  L'IA  doit  indiquer  le  document  source  utilisé  pour  générer  sa  réponse.
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+ 
+  
+3.  Spéciﬁcations  Techniques  (La  Stack)  ●  Frontend  :  React.js  (avec  Tailwind  CSS  pour  le  design).  
+●  Backend  :  FastAPI  (Python).  
+●  Base  de  données  (Relationnelle)  :  PostgreSQL  (Utilisateurs,  logs  de  prédiction).
+ ●  Base  de  données  (Vectorielle)  :  ChromaDB  (Pour  stocker  les  documents  du  
+RAG).
+ 
+●  Modèle  ML  :  Random  Forest  ou  XGBoost  (entraîné  sur  un  dataset  CSV).  
+●  Intégration  LLM  :  API  OpenAI  (GPT-4o-mini)  ou  Mistral  AI  via  LangChain.  
+●  Orchestration  :  Script  Python  automatisé  (ou  Apache  Airﬂow)  pour  le  pipeline  de  
+données.
+ 
+●  Déploiement  :  Docker  &  Docker  Compose.  
+●  CI/CD  :  GitHub  Actions.
+ 
+ 
+4.  Architecture  IA  et  Données  
+4.1
+ 
+Modèle  de  Machine  Learning  (Prédictif)
+ 
+●  Dataset  :  Données  historiques  de  traﬁc  (Format  CSV,  ex:  Kaggle).  
+●  Variables  (Features)  :  ID_Quartier,  Heure,  Jour_Semaine,  Jour_Férié,  
+Condition_Météo.
+ 
+●  Cible  (Target)  :  Score_Tension  (Valeur  normalisée  basée  sur  le  volume  de  traﬁc).  
+●  Métriques  d'évaluation  :  MAE  (Mean  Absolute  Error)  et  RMSE.  
+ 
+ 
+ 
+
+ 
+  
+4.2
+ 
+Système  RAG  (Génératif)  
+●  Documents  :  Fichiers  PDF/Texte  sur  la  gestion  urbaine.  
+●  Processus  :  Découpage  des  documents  en  segments  (Chunks),  transformation  
+en
+ 
+vecteurs
+ 
+(Embeddings)
+ 
+via
+ 
+Sentence-Transformers,
+ 
+et
+ 
+stockage
+ 
+dans
+ 
+ChromaDB.
+ 
+●  Récupération  :  Recherche  par  similarité  pour  fournir  le  contexte  pertinent  au  
+LLM.
+ 
+ 
+5.  Modélisation  des  Données  (MCD)  ●  Table  Utilisateurs  :  id,  nom_utilisateur,  mot_de_passe_hash,  role.  
+●  Table  Prédictions  :  id,  horodatage,  quartier,  score_predit,  score_réel.  
+●  Table  Logs_Requetes  :  id,  user_id,  question_posee,  reponse_llm,  date.
+ 
+ 
+6.  MLOps,  Qualité  et  Sécurité  
+6.1
+ MLOps  &  Monitoring  ●  Suivi  :  Utilisation  de  MLﬂow  pour  enregistrer  les  paramètres  et  la  précision  du  
+modèle.
+ 
+●  Détection  de  Dérive  :  Script  d'alerte  si  l'erreur  de  prédiction  dépasse  un  seuil  de  
+20%.
+ 
+ 
+ 
+
+ 
+  
+6.2
+ Sécurité  et  Conformité  
+●  Sécurité  API  :  Protection  des  points  d'accès  par  OAuth2/JWT.  
+●  RGPD  :  Anonymisation  des  logs  utilisateurs  et  respect  du  droit  à  l'effacement.  
+●  IA  Act  :  Documentation  de  la  transparence  du  modèle  et  maintien  d'un  contrôle  
+humain
+ 
+sur
+ 
+les
+ 
+décisions
+ 
+suggérées.
+ 
+6.3
+ 
+Qualité  Logicielle  
+●  Tests  :  Pytest  pour  la  logique  backend.  
+●  Documentation  :  Documentation  automatique  Swagger/OpenAPI  via  FastAPI.
+ 
+ 
+7.  Livrables  et  Calendrier  (Roadmap)  ●  Phase  1  :  Conception  (Semaines  1-2)  :  Diagrammes  UML,  MCD/MPD  et  User  
+Stories
+ 
+sur
+ 
+Trello.
+ 
+●  Phase  2  :  Data  &  ML  (Semaines  3-4)  :  Pipeline  ETL  et  entraînement  du  modèle  
+Random
+ 
+Forest.
+ 
+●  Phase  3  :  LLM  &  RAG  (Semaines  5-6)  :  Conﬁguration  de  ChromaDB  et  intégration  
+LangChain.
+ 
+●  Phase  4  :  Développement  Full-Stack  (Semaines  7-8 )  :  API  FastAPI  et  Dashboard  
+React.
+ 
+●  Phase  5  :  MLOps  &  Sécurité  (Semaines  9-10)  :  Dockerisation,  CI/CD  et  tests  de  
+sécurité.
+ 
+●  Phase  6  :  Finalisation  (Semaine  11 )  :  Rapport  technique,  tests  ﬁnaux  et  support  
+de
+ 
+présentation.
+ 
+ 
+ 
+
+ 
+  
+8.  Gestion  des  Risques  ●  Disponibilité  des  données  :  Atténuation  :  Utilisation  d'un  dataset  Kaggle  robuste  
+au
+ 
+lieu
+ 
+d'une
+ 
+API
+ 
+temps
+ 
+réel
+ 
+instable.
+ 
+●  Coûts  API  :  Atténuation  :  Utilisation  de  modèles  légers  (GPT-4o-mini)  pour  
+minimiser
+ 
+la
+ 
+consommation
+ 
+de
+ 
+tokens.
+ 
+●  Performance  :  Atténuation  :  Utilisation  d'une  base  vectorielle  locale  (ChromaDB)  
+pour
+ 
+une
+ 
+réponse
+ 
+rapide
+ 
+du
+ 
+RAG.
+ 
+9.  Extension  :  Embouteillages  &  Pics  de  Pollution  
+9.1  Objectif  
+●  CityFlow  Sentinel  intègre  l’analyse  des  embouteillages  et  la  prédiction  des  pics  
+de
+ 
+pollution
+ 
+aﬁn
+ 
+d’aider
+ 
+les
+ 
+gestionnaires
+ 
+urbains
+ 
+à
+ 
+anticiper
+ 
+les
+ 
+risques
+ 
+liés
+ 
+à
+ 
+la
+ 
+mobilité
+ 
+et
+ 
+à
+ 
+la
+ 
+qualité
+ 
+de
+ 
+l’air.
+ 
+9.2  Fonctionnalités  
+●  Détection  des  zones  à  forte  congestion  routière.  
+ 
+●  Prédiction  d’un  Indice  de  Pollution  (NO₂,  PM10,  PM2.5)  par  quartier  et  par  
+heure.
+ 
+ 
+●  Identiﬁcation  automatique  des  dépassements  de  seuils  réglementaires.  
+ 
+●  Génération  d’alertes  et  de  recommandations  opérationnelles.  
+ 
+9.3  Données  &  IA  
+●  Features  :  volume  de  traﬁc,  vitesse  moyenne,  météo,  type  de  jour.  
+  
+
+ 
+  
+●  Cibles  :  Niveau  de  Congestion,  Indice  de  Pollution  (0–100).  
+ 
+●  Intégration  avec  l’assistant  IA  (LLM/RAG)  pour  consulter  les  réglementations  
+liées
+ 
+aux
+ 
+pics
+ 
+de
+ 
+pollution
+ 
+et
+ 
+aux
+ 
+embouteillages.
+ 
+ 
+9.4  Valeur  Ajoutée  
+●  Vision  combinée  mobilité  +  environnement.  
+ 
+●  Aide  à  la  décision  proactive  et  conforme  aux  réglementations  urbaines.  
+ 
+ 

@@ -11,7 +11,7 @@ CityFlow Sentinel is defined in the specification as a three-pillar platform:
 
 | Pillar | Description |
 |---|---|
-| **ML Prediction** | Traffic Tension Score (0-100) per district per hour |
+| **ML Prediction** | Traffic Tension Score (0-100) for the Main Arterial Road per hour |
 | **LLM / RAG Assistant** | Natural-language Q&A on urban regulations |
 | **Full-Stack Dashboard** | React + FastAPI unified interface |
 
@@ -99,7 +99,7 @@ Results logged to [`training_results.csv`](cityflow_ml_lab/models/training_resul
 - [ ] Create FastAPI project structure
 - [ ] Implement JWT authentication (OAuth2/JWT)
 - [ ] Define user roles: `Administrator` (full access) and `Operator` (read-only)
-- [ ] Build prediction endpoint: accepts `quartier`, `heure`, `météo` → returns `tension_score`
+- [ ] Build prediction endpoint: accepts `heure`, `météo` → returns `tension_score`
 - [ ] Build RAG chat endpoint: accepts user question → returns LLM answer + source citation
 - [ ] Set up **PostgreSQL** database with 3 tables (`Utilisateurs`, `Prédictions`, `Logs_Requetes`)
 - [ ] Auto-generated Swagger/OpenAPI docs via FastAPI
@@ -108,7 +108,7 @@ Results logged to [`training_results.csv`](cityflow_ml_lab/models/training_resul
 - [ ] Login page with JWT authentication
 - [ ] Prediction dashboard:
   - Interactive map or chart showing 24h tension score forecast
-  - Filters: District, Day of week, Time slot
+  - Filters: Day of week, Time slot
   - Historical comparison view (predicted vs. actual)
 - [ ] RAG chat interface:
   - Chat window for natural-language questions
@@ -149,7 +149,7 @@ Results logged to [`training_results.csv`](cityflow_ml_lab/models/training_resul
 > **Status: Not started** (bonus scope defined in Section 9 of the spec)
 
 - [ ] Congestion zone detection features
-- [ ] Pollution Index prediction (NO₂, PM10, PM2.5) per district per hour
+- [ ] Pollution Index prediction (NO₂, PM10, PM2.5) per hour
 - [ ] Automated threshold breach detection and alert generation
 - [ ] RAG integration for pollution-related regulation queries
 
@@ -165,7 +165,7 @@ Results logged to [`training_results.csv`](cityflow_ml_lab/models/training_resul
 | Evaluation with MAE and RMSE | ✅ Done |
 | Random Forest model | ✅ Done |
 | XGBoost / LightGBM (bonus) | ✅ Done |
-| Quartier (district) as feature | ❌ Missing — dataset has no district ID |
+| Main Arterial Road scope (instead of district) | ✅ Adapted — Using global traffic data |
 | LLM / RAG assistant | ❌ Not started |
 | ChromaDB + LangChain integration | ❌ Not started |
 | FastAPI backend | ❌ Not started |
@@ -183,12 +183,9 @@ Results logged to [`training_results.csv`](cityflow_ml_lab/models/training_resul
 
 ## 5. Key Technical Note
 
-The current dataset (`metro_traffic.csv`) does **not contain a district/quartier column** (`ID_Quartier`). The specification requires predictions *per quartier*. Before moving to Phase 4, either:
+The original specification required predictions per district. However, as the dataset (`metro_traffic.csv`) does not contain a district/quartier column (`ID_Quartier`) and retraining is postponed, the specification has been adapted. The ML model now predicts a single global tension score for a **Main Arterial Road**. 
 
-1. Source a multi-district dataset, or
-2. Extend the data model to simulate or ingest district-level data.
-
-This is a critical dependency for the prediction dashboard and should be resolved before building the API prediction endpoint.
+This adaptation simplifies the prediction dashboard, which will display global trends rather than district-level heatmaps, allowing us to proceed directly to Phase 4.
 
 ---
 

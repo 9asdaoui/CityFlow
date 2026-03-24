@@ -13,3 +13,20 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 python-jose[cryptography]
 python-multipart
+langchain
+langchain-community
+langchain-chroma
+langchain-huggingface
+langchain-ollama
+pypdf
+chromadb
+
+# --- THE STABLE ML STACK ---
+# We use 4.44.2 because it contains 'EncoderDecoderCache' 
+# but still keeps the old 'is_torch_fx_available' location.
+torch --index-url https://download.pytorch.org/whl/cpu
+transformers==4.44.2
+peft==0.11.1
+accelerate==0.33.0
+sentence-transformers==3.0.1
+FlagEmbedding==1.2.11

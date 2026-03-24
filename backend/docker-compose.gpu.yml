@@ -1,0 +1,21 @@
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  fastapi:
+    environment:
+      - EMBEDDING_DEVICE=auto
+      - RERANKER_USE_FP16=auto
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

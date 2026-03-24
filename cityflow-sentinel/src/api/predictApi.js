@@ -11,7 +11,7 @@ import api from './axiosConfig';
  *   - snow_1h: mm (float)
  * Returns: { tension_score: number, model: string }
  */
-export async function predict({ date_time, temp, rain_1h, snow_1h }) {
-  const res = await api.post('/predict', { date_time, temp, rain_1h, snow_1h });
+export async function predict({ date_time, temp, rain_1h, snow_1h, lat, lng }) {
+  const res = await api.post('/predict', { date_time, temp, rain_1h, snow_1h, lat, lng });
   return res.data; // { tension_score, model }
 }

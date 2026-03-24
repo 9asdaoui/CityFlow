@@ -12,6 +12,20 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  ollama_pull:
+    image: curlimages/curl:latest
+    depends_on:
+      - ollama
+    command: >
+      sh -c "sleep 5 && curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"llama3\"}'"
+
   fastapi:
     build:
       context: ..
@@ -20,10 +34,14 @@ services:
       - "8000:8000"
     volumes:
       - ../cityflow_ml_lab/models:/app/models:ro
+      - ./chroma_db:/app/backend/chroma_db
     environment:
       - DATABASE_URL=postgresql://cityflow_user:cityflow_password@db:5432/cityflow_db
+      - OLLAMA_HOST=http://ollama:11434
     depends_on:
       - db
+      - ollama
 
 volumes:
   postgres_data:
+  ollama_data:

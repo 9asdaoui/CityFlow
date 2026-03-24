@@ -16,7 +16,7 @@ class UserResponse(UserBase):
     role: UserRole
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # --- Auth Schemas --- #
 class Token(BaseModel):
@@ -38,7 +38,7 @@ class PredictionResponse(PredictionCreate):
     actual_score: Optional[float] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # --- ChatLog Schemas --- #
 class ChatLogBase(BaseModel):
@@ -54,4 +54,4 @@ class ChatLogResponse(ChatLogBase):
     created_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True

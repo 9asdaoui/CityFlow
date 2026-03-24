@@ -8,47 +8,75 @@ export function useChat() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const getSessionId = () => {
+    let sid = localStorage.getItem('cf_session_id');
+    if (!sid) {
+      sid = 'sess_' + Math.random().toString(36).substring(2, 9);
+      localStorage.setItem('cf_session_id', sid);
+    }
+    return sid;
+  };
+
+  const loadHistory = useCallback(async () => {
+    const token = localStorage.getItem('cf_token');
+    const userId = getSessionId();
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/chat/history/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setMessages(data);
+      }
+    } catch {
+      console.warn("Could not load history");
+    }
+  }, []);
+
   const sendMessage = useCallback(async (userText) => {
     const userMsg = { role: 'user', content: userText };
-    const newHistory = [...messages, userMsg];
-    setMessages(newHistory);
+    setMessages(prev => [...prev, userMsg]);
     setLoading(true);
     setError(null);
 
-    const systemPrompt = `You are CityFlow Sentinel's urban regulation assistant. 
-You help city operators understand urban mobility policies, traffic management 
-protocols, and emergency procedures. You answer questions by citing relevant 
-policy documents. Always end your response with a "Source:" line indicating 
-which regulatory document you referenced (e.g., "Source: Code de la mobilité 
-urbaine, Article 14" or "Source: Manuel de gestion des crises routières, §3.2"). 
-Keep answers concise and operational. If you don't know, say so clearly.`;
+    const token = localStorage.getItem('cf_token');
+    const userId = getSessionId();
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/chat/`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: systemPrompt,
-          messages: newHistory,
+          user_id: userId,
+          query: userText
         }),
       });
 
+      if (!response.ok) throw new Error('API Error');
+
       const data = await response.json();
-      const assistantText = data.content?.find((b) => b.type === 'text')?.text || 'Aucune réponse.';
-      setMessages([...newHistory, { role: 'assistant', content: assistantText }]);
+      
+      // The LLM system prompt is now strictly instructed to output Markdown 
+      // with a "### Sources Consultées" section at the footer natively.
+      let assistantText = data.answer;
+
+      setMessages(prev => [...prev, { role: 'assistant', content: assistantText }]);
     } catch {
-      setError('Impossible de contacter l\'assistant IA.');
+      setError("Impossible de contacter l'assistant IA local via FastAPI.");
     } finally {
       setLoading(false);
     }
-  }, [messages]);
+  }, []);
 
   const clearChat = useCallback(() => {
     setMessages([]);
     setError(null);
   }, []);
 
-  return { messages, loading, error, sendMessage, clearChat };
+  return { messages, loading, error, sendMessage, clearChat, loadHistory };
 }

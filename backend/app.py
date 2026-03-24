@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from backend.database import engine, Base
 from backend.routes.auth_routes import router as auth_router
+from backend.routes.chat_routes import router as chat_router
 from backend.core.auth import get_current_active_user
 from backend.models import User
 from fastapi import Depends
@@ -18,6 +19,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="CityFlow Traffic Tension API")
 app.include_router(auth_router)
+app.include_router(chat_router)
 
 # Allow local frontend development to call this backend
 app.add_middleware(
@@ -56,11 +58,35 @@ class PredictionInput(BaseModel):
     temp: float = Field(..., example=286.15)
     rain_1h: float = Field(..., example=0.0)
     snow_1h: float = Field(..., example=0.0)
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 
 class PredictionOutput(BaseModel):
     tension_score: float
     model: str
+
+
+def apply_spatial_bias(base_score: float, lat: float, lng: float) -> float:
+    """Simulates localized logic for a city-level prediction."""
+    import math
+    if lat is None or lng is None:
+        return base_score
+        
+    center_lat, center_lng = 33.5731, -7.5898 # Casablanca, Morocco
+    distance = math.sqrt((lat - center_lat)**2 + (lng - center_lng)**2)
+    
+    if distance < 0.03:
+        bias = 15.0  # Center: heavy traffic
+    elif distance < 0.08:
+        bias = 0.0   # Mid-ring
+    else:
+        bias = -20.0 # Suburbs
+        
+    noise = (math.sin(lat * 5000) + math.cos(lng * 5000)) * 6.0
+    
+    final_score = base_score + bias + noise
+    return max(0.0, min(100.0, final_score))
 
 
 def preprocess_single(record: PredictionInput) -> np.ndarray:
@@ -98,5 +124,12 @@ def health():
 def predict(input: PredictionInput, current_user: User = Depends(get_current_active_user)):
     X = preprocess_single(input)
     pred = model.predict(X)
-    # In training, we stored tension_score scaled 0-100 already
-    return PredictionOutput(tension_score=float(pred[0]), model="xgboost")
+    base_score = float(pred[0])
+    
+    # 2. Map Variation Simulation (Deterministic clustering logic)
+    if input.lat is not None and input.lng is not None:
+        final_score = apply_spatial_bias(base_score, float(input.lat), float(input.lng))
+    else:
+        final_score = base_score
+        
+    return PredictionOutput(tension_score=final_score, model="xgboost_spatial")

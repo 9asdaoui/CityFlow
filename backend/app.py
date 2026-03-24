@@ -1,6 +1,8 @@
+import os
 from typing import Optional
 
 import joblib
+import mlflow
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI
@@ -39,13 +41,47 @@ app.add_middleware(
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
-MODELS_DIR = BASE_DIR.joinpath("models").resolve()
+container_models_dir = BASE_DIR.joinpath("models").resolve()
+local_models_dir = BASE_DIR.joinpath("..", "cityflow_ml_lab", "models").resolve()
+MODELS_DIR = container_models_dir if container_models_dir.exists() else local_models_dir
 
 PREPROCESSOR_PATH = MODELS_DIR.joinpath("preprocessor.joblib")
 MODEL_PATH = MODELS_DIR.joinpath("xgboost_model.joblib")
 
-preprocessor = joblib.load(PREPROCESSOR_PATH)
-model = joblib.load(MODEL_PATH)
+
+class _IdentityScaler:
+    def transform(self, values):
+        return values
+
+
+class _DummyModel:
+    def predict(self, X):
+        return np.array([50.0 for _ in range(len(X))])
+
+
+if PREPROCESSOR_PATH.exists() and MODEL_PATH.exists():
+    preprocessor = joblib.load(PREPROCESSOR_PATH)
+    model = joblib.load(MODEL_PATH)
+else:
+    if os.getenv("TESTING", "0") in {"1", "true", "True"}:
+        preprocessor = {
+            "feature_cols": [
+                "hour_sin",
+                "hour_cos",
+                "day_of_week",
+                "is_weekend",
+                "temp_celsius",
+                "rain_1h",
+                "snow_1h",
+            ],
+            "scaler_features": _IdentityScaler(),
+            "scaler_target": _IdentityScaler(),
+        }
+        model = _DummyModel()
+    else:
+        raise FileNotFoundError(
+            f"Model artifacts missing: {PREPROCESSOR_PATH} and/or {MODEL_PATH}"
+        )
 
 # These match the training pipeline feature order
 FEATURE_COLS = preprocessor["feature_cols"]
@@ -122,6 +158,9 @@ def health():
 
 @app.post("/predict", response_model=PredictionOutput)
 def predict(input: PredictionInput, current_user: User = Depends(get_current_active_user)):
+    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000"))
+    mlflow.set_experiment("cityflow_predict_inference")
+
     X = preprocess_single(input)
     pred = model.predict(X)
     base_score = float(pred[0])
@@ -131,5 +170,23 @@ def predict(input: PredictionInput, current_user: User = Depends(get_current_act
         final_score = apply_spatial_bias(base_score, float(input.lat), float(input.lng))
     else:
         final_score = base_score
+
+    try:
+        with mlflow.start_run(run_name="predict_request"):
+            mlflow.log_params(
+                {
+                    "date_time": input.date_time,
+                    "temp": float(input.temp),
+                    "rain_1h": float(input.rain_1h),
+                    "snow_1h": float(input.snow_1h),
+                    "lat": float(input.lat) if input.lat is not None else None,
+                    "lng": float(input.lng) if input.lng is not None else None,
+                    "user": current_user.username,
+                    "model": "xgboost_spatial",
+                }
+            )
+            mlflow.log_metric("tension_score", float(final_score))
+    except Exception as exc:
+        print(f"[MLflow] predict logging failed: {exc}")
         
     return PredictionOutput(tension_score=final_score, model="xgboost_spatial")

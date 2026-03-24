@@ -5,9 +5,15 @@ from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 import xgboost as xgb
-import lightgbm as lgb
 import joblib
 import os
+import mlflow
+from pathlib import Path
+
+try:
+    import lightgbm as lgb
+except Exception:
+    lgb = None
 
 
 def preprocess_data(df, scaler_features=None, scaler_target=None, fit=False):
@@ -91,12 +97,18 @@ def evaluate_model(y_true, y_pred, model_name):
 def train_models():
     print("CityFlow ML - Training Script")
     print("=" * 70)
-    
-    models_dir = '../models'
+
+    project_root = Path(__file__).resolve().parents[1]
+    data_path = project_root / 'data' / 'metro_traffic.csv'
+    models_dir = project_root / 'models'
+
+    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000"))
+    mlflow.set_experiment("cityflow_traffic_tension")
+
     os.makedirs(models_dir, exist_ok=True)
     
     print("\n[1/6] Loading data...")
-    df = pd.read_csv('../data/metro_traffic.csv')
+    df = pd.read_csv(data_path)
     print(f"Loaded {len(df):,} records")
     
     print("\n[2/6] Preprocessing data...")
@@ -137,44 +149,65 @@ def train_models():
     print(f"Model saved to: {rf_path}")
     
     print("\n[5/6] Training XGBoost Regressor...")
-    xgb_model = xgb.XGBRegressor(
-        n_estimators=100,
-        max_depth=8,
-        learning_rate=0.1,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        random_state=42,
-        n_jobs=-1,
-        verbosity=1
-    )
-    xgb_model.fit(X_train, y_train)
-    
-    y_pred_xgb = xgb_model.predict(X_test)
-    results['XGBoost'] = evaluate_model(y_test, y_pred_xgb, "XGBoost")
-    
-    xgb_path = os.path.join(models_dir, 'xgboost_model.joblib')
-    joblib.dump(xgb_model, xgb_path)
+    xgb_params = {
+        'n_estimators': 100,
+        'max_depth': 8,
+        'learning_rate': 0.1,
+        'subsample': 0.8,
+        'colsample_bytree': 0.8,
+        'random_state': 42,
+        'n_jobs': -1,
+        'verbosity': 1
+    }
+
+    with mlflow.start_run(run_name="xgboost_training"):
+        xgb_model = xgb.XGBRegressor(**xgb_params)
+        xgb_model.fit(X_train, y_train)
+
+        y_pred_xgb = xgb_model.predict(X_test)
+        xgb_metrics = evaluate_model(y_test, y_pred_xgb, "XGBoost")
+
+        mlflow.log_params({
+            "n_estimators": xgb_params["n_estimators"],
+            "max_depth": xgb_params["max_depth"],
+            "learning_rate": xgb_params["learning_rate"],
+        })
+        mlflow.log_metrics({
+            "rmse": float(xgb_metrics["rmse"]),
+            "mae": float(xgb_metrics["mae"]),
+            "r2": float(xgb_metrics["r2"]),
+        })
+
+        xgb_path = os.path.join(models_dir, 'xgboost_model.joblib')
+        joblib.dump(xgb_model, xgb_path)
+        mlflow.log_artifact(xgb_path, artifact_path="artifacts")
+
+    results['XGBoost'] = xgb_metrics
+
     print(f"Model saved to: {xgb_path}")
     
     print("\n[6/6] Training LightGBM Regressor...")
-    lgb_model = lgb.LGBMRegressor(
-        n_estimators=100,
-        max_depth=8,
-        learning_rate=0.1,
-        subsample=0.8,
-        colsample_bytree=0.8,
-        random_state=42,
-        n_jobs=-1,
-        verbose=1
-    )
-    lgb_model.fit(X_train, y_train)
-    
-    y_pred_lgb = lgb_model.predict(X_test)
-    results['LightGBM'] = evaluate_model(y_test, y_pred_lgb, "LightGBM")
-    
-    lgb_path = os.path.join(models_dir, 'lightgbm_model.joblib')
-    joblib.dump(lgb_model, lgb_path)
-    print(f"Model saved to: {lgb_path}")
+    if lgb is None:
+        print("Skipping LightGBM: dependency is unavailable in this runtime")
+    else:
+        lgb_model = lgb.LGBMRegressor(
+            n_estimators=100,
+            max_depth=8,
+            learning_rate=0.1,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            random_state=42,
+            n_jobs=-1,
+            verbose=1
+        )
+        lgb_model.fit(X_train, y_train)
+
+        y_pred_lgb = lgb_model.predict(X_test)
+        results['LightGBM'] = evaluate_model(y_test, y_pred_lgb, "LightGBM")
+
+        lgb_path = os.path.join(models_dir, 'lightgbm_model.joblib')
+        joblib.dump(lgb_model, lgb_path)
+        print(f"Model saved to: {lgb_path}")
     
     print("\n" + "=" * 70)
     print("TRAINING COMPLETE - Model Comparison")

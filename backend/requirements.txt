@@ -20,6 +20,9 @@ langchain-huggingface
 langchain-ollama
 pypdf
 chromadb
+mlflow
+pytest
+flake8
 
 # --- THE STABLE ML STACK ---
 # We use 4.44.2 because it contains 'EncoderDecoderCache' 

@@ -12,6 +12,20 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  mlflow:
+    image: python:3.11-slim
+    command: >
+      sh -c "pip install --no-cache-dir mlflow && mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --allowed-hosts localhost,127.0.0.1,localhost:5000,mlflow,mlflow:5000,host.docker.internal,host.docker.internal:5000
+      --backend-store-uri sqlite:///mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+
   ollama:
     image: ollama/ollama:latest
     ports:
@@ -38,10 +52,13 @@ services:
     environment:
       - DATABASE_URL=postgresql://cityflow_user:cityflow_password@db:5432/cityflow_db
       - OLLAMA_HOST=http://ollama:11434
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
     depends_on:
       - db
       - ollama
+      - mlflow
 
 volumes:
   postgres_data:
   ollama_data:
+  mlflow_data:

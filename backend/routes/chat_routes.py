@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any
-from backend.core.rag import rag_pipeline, SQL_MEMORY_URI
+from backend.core.rag import get_rag_pipeline, SQL_MEMORY_URI
 from backend.core.auth import get_current_active_user
 from langchain_community.chat_message_histories import SQLChatMessageHistory
 from backend.models import User
@@ -20,6 +20,7 @@ class ChatResponse(BaseModel):
 async def chat_endpoint(request: ChatRequest, current_user: User = Depends(get_current_active_user)):
     """Receives a query, runs the RAG pipeline, and returns the answer with metadata."""
     try:
+        rag_pipeline = get_rag_pipeline()
         result = rag_pipeline.chat(request.user_id, request.query)
         return result
     except Exception as e:
@@ -31,6 +32,7 @@ async def ingest_endpoint(current_user: User = Depends(get_current_active_user))
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
     try:
+        rag_pipeline = get_rag_pipeline()
         rag_pipeline.ingest_documents()
         return {"status": "success", "message": "Knowledge base ingested successfully."}
     except Exception as e:

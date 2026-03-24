@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import torch
 
 from langchain_community.document_loaders import PyPDFLoader
@@ -199,4 +199,11 @@ class RagPipeline:
             "sources": [doc.metadata for doc in final_docs]
         }
 
-rag_pipeline = RagPipeline()
+rag_pipeline: Optional[RagPipeline] = None
+
+
+def get_rag_pipeline() -> RagPipeline:
+    global rag_pipeline
+    if rag_pipeline is None:
+        rag_pipeline = RagPipeline()
+    return rag_pipeline

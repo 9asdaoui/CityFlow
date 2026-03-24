@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 from datetime import datetime
 from .models import UserRole
@@ -14,9 +14,7 @@ class UserCreate(UserBase):
 class UserResponse(UserBase):
     id: int
     role: UserRole
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Auth Schemas --- #
 class Token(BaseModel):
@@ -36,9 +34,7 @@ class PredictionResponse(PredictionCreate):
     id: int
     timestamp: datetime
     actual_score: Optional[float] = None
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- ChatLog Schemas --- #
 class ChatLogBase(BaseModel):
@@ -52,6 +48,4 @@ class ChatLogResponse(ChatLogBase):
     user_id: int
     llm_answer: Optional[str] = None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

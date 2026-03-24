@@ -23,6 +23,7 @@ chromadb
 mlflow
 pytest
 flake8
+prometheus-fastapi-instrumentator
 
 # --- THE STABLE ML STACK ---
 # We use 4.44.2 because it contains 'EncoderDecoderCache' 

@@ -1,6 +1,7 @@
 import importlib
 
 from langchain_community.chat_message_histories import SQLChatMessageHistory
+from sqlalchemy import create_engine
 
 
 def test_chat_history_returns_last_10_messages(client, make_auth_headers, tmp_path, monkeypatch):
@@ -9,7 +10,7 @@ def test_chat_history_returns_last_10_messages(client, make_auth_headers, tmp_pa
     monkeypatch.setattr(chat_routes, "SQL_MEMORY_URI", memory_uri)
 
     user_id = "history-user"
-    memory = SQLChatMessageHistory(session_id=user_id, connection_string=memory_uri)
+    memory = SQLChatMessageHistory(session_id=user_id, connection=create_engine(memory_uri))
 
     for i in range(6):
         memory.add_user_message(f"user-{i}")

@@ -6,7 +6,10 @@ import mlflow
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
 
 from backend.database import engine, Base
@@ -23,6 +26,21 @@ app = FastAPI(title="CityFlow Traffic Tension API")
 app.include_router(auth_router)
 app.include_router(chat_router)
 
+METRICS_BEARER_TOKEN = os.getenv(
+    "METRICS_BEARER_TOKEN",
+    "cityflow-internal-metrics-token",
+)
+DISABLE_MLFLOW = os.getenv("DISABLE_MLFLOW", "false").lower() == "true"
+
+@app.middleware("http")
+async def restrict_metrics_endpoint(request: Request, call_next):
+    if request.url.path == "/metrics":
+        auth_header = request.headers.get("authorization", "")
+        expected = f"Bearer {METRICS_BEARER_TOKEN}"
+        if auth_header != expected:
+            return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+    return await call_next(request)
+
 # Allow local frontend development to call this backend
 app.add_middleware(
     CORSMiddleware,
@@ -36,6 +54,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=False,
+    excluded_handlers=["/health", "/metrics"],
+).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 # Load preprocessing and model objects (paths resolved relative to this file)
 from pathlib import Path
@@ -90,10 +114,10 @@ SCALER_TARGET = preprocessor["scaler_target"]
 
 
 class PredictionInput(BaseModel):
-    date_time: str = Field(..., example="2018-09-27 00:00:00")
-    temp: float = Field(..., example=286.15)
-    rain_1h: float = Field(..., example=0.0)
-    snow_1h: float = Field(..., example=0.0)
+    date_time: str = Field(..., json_schema_extra={"example": "2018-09-27 00:00:00"})
+    temp: float = Field(..., json_schema_extra={"example": 286.15})
+    rain_1h: float = Field(..., json_schema_extra={"example": 0.0})
+    snow_1h: float = Field(..., json_schema_extra={"example": 0.0})
     lat: Optional[float] = None
     lng: Optional[float] = None
 
@@ -127,7 +151,7 @@ def apply_spatial_bias(base_score: float, lat: float, lng: float) -> float:
 
 def preprocess_single(record: PredictionInput) -> np.ndarray:
     """Convert a single record into the model input vector."""
-    df = pd.DataFrame([record.dict()])
+    df = pd.DataFrame([record.model_dump()])
     df["date_time"] = pd.to_datetime(df["date_time"])
 
     df["hour"] = df["date_time"].dt.hour
@@ -158,9 +182,6 @@ def health():
 
 @app.post("/predict", response_model=PredictionOutput)
 def predict(input: PredictionInput, current_user: User = Depends(get_current_active_user)):
-    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000"))
-    mlflow.set_experiment("cityflow_predict_inference")
-
     X = preprocess_single(input)
     pred = model.predict(X)
     base_score = float(pred[0])
@@ -171,22 +192,25 @@ def predict(input: PredictionInput, current_user: User = Depends(get_current_act
     else:
         final_score = base_score
 
-    try:
-        with mlflow.start_run(run_name="predict_request"):
-            mlflow.log_params(
-                {
-                    "date_time": input.date_time,
-                    "temp": float(input.temp),
-                    "rain_1h": float(input.rain_1h),
-                    "snow_1h": float(input.snow_1h),
-                    "lat": float(input.lat) if input.lat is not None else None,
-                    "lng": float(input.lng) if input.lng is not None else None,
-                    "user": current_user.username,
-                    "model": "xgboost_spatial",
-                }
-            )
-            mlflow.log_metric("tension_score", float(final_score))
-    except Exception as exc:
-        print(f"[MLflow] predict logging failed: {exc}")
+    if not DISABLE_MLFLOW:
+        try:
+            mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000"))
+            mlflow.set_experiment("cityflow_predict_inference")
+            with mlflow.start_run(run_name="predict_request"):
+                mlflow.log_params(
+                    {
+                        "date_time": input.date_time,
+                        "temp": float(input.temp),
+                        "rain_1h": float(input.rain_1h),
+                        "snow_1h": float(input.snow_1h),
+                        "lat": float(input.lat) if input.lat is not None else None,
+                        "lng": float(input.lng) if input.lng is not None else None,
+                        "user": current_user.username,
+                        "model": "xgboost_spatial",
+                    }
+                )
+                mlflow.log_metric("tension_score", float(final_score))
+        except Exception as exc:
+            print(f"[MLflow] predict logging failed: {exc}")
         
     return PredictionOutput(tension_score=final_score, model="xgboost_spatial")

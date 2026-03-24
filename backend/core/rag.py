@@ -12,6 +12,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
 from langchain_community.chat_message_histories import SQLChatMessageHistory
+from sqlalchemy import create_engine
 
 # --- MONKEY PATCH FIX FOR TRANSFORMERS IMPORT BUG ---
 import transformers.utils.import_utils
@@ -27,6 +28,7 @@ KNOWLEDGE_BASE_DIR = Path(__file__).parent.parent / "knowledge_base"
 CHROMA_PERSIST_DIR = Path(__file__).parent.parent / "chroma_db"
 # Keep sqlite safely inside the mounted chroma directory to avoid Docker file-as-directory mount bugs
 SQL_MEMORY_URI = f"sqlite:///{CHROMA_PERSIST_DIR / 'memory.db'}"
+SQL_MEMORY_ENGINE = create_engine(SQL_MEMORY_URI)
 
 class RagPipeline:
     def __init__(self):
@@ -150,7 +152,7 @@ class RagPipeline:
 
     def chat(self, user_id: str, query: str) -> Dict[str, Any]:
         """Executes the full RAG pipeline and logs to SQL Memory."""
-        memory = SQLChatMessageHistory(session_id=user_id, connection_string=SQL_MEMORY_URI)
+        memory = SQLChatMessageHistory(session_id=user_id, connection=SQL_MEMORY_ENGINE)
         history = memory.messages
         
         # 1. Batched Generation (1 contextual + 3 variations)

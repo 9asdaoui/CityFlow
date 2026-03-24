@@ -11,6 +11,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cityflow-network
 
   mlflow:
     image: python:3.11-slim
@@ -25,6 +27,8 @@ services:
       - "5000:5000"
     volumes:
       - mlflow_data:/mlflow
+    networks:
+      - cityflow-network
 
   ollama:
     image: ollama/ollama:latest
@@ -32,6 +36,8 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    networks:
+      - cityflow-network
 
   ollama_pull:
     image: curlimages/curl:latest
@@ -39,6 +45,8 @@ services:
       - ollama
     command: >
       sh -c "sleep 5 && curl -X POST http://ollama:11434/api/pull -d '{\"name\": \"llama3\"}'"
+    networks:
+      - cityflow-network
 
   fastapi:
     build:
@@ -53,12 +61,64 @@ services:
       - DATABASE_URL=postgresql://cityflow_user:cityflow_password@db:5432/cityflow_db
       - OLLAMA_HOST=http://ollama:11434
       - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - METRICS_BEARER_TOKEN=cityflow-internal-metrics-token
     depends_on:
       - db
       - ollama
       - mlflow
+    networks:
+      - cityflow-network
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    networks:
+      - cityflow-network
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - fastapi
+      - cadvisor
+    networks:
+      - cityflow-network
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - cityflow-network
 
 volumes:
   postgres_data:
   ollama_data:
   mlflow_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  cityflow-network:
+    name: cityflow-network

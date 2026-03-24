@@ -4,6 +4,7 @@ from typing import List, Dict, Any
 from backend.core.rag import get_rag_pipeline, SQL_MEMORY_URI
 from backend.core.auth import get_current_active_user
 from langchain_community.chat_message_histories import SQLChatMessageHistory
+from sqlalchemy import create_engine
 from backend.models import User
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -45,7 +46,10 @@ class MessageResponse(BaseModel):
 @router.get("/history/{user_id}", response_model=List[MessageResponse])
 async def get_chat_history(user_id: str, current_user: User = Depends(get_current_active_user)):
     try:
-        memory = SQLChatMessageHistory(session_id=user_id, connection_string=SQL_MEMORY_URI)
+        memory = SQLChatMessageHistory(
+            session_id=user_id,
+            connection=create_engine(SQL_MEMORY_URI),
+        )
         messages = memory.messages[-10:] # last 10 messages
         
         return [{"role": "user" if msg.type == "human" else "assistant", "content": msg.content} for msg in messages]

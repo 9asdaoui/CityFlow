@@ -10,7 +10,7 @@ scrape_configs:
     static_configs:
       - targets: ["fastapi:8000"]
 
-  - job_name: ollama-cadvisor
+  - job_name: docker-containers
     static_configs:
       - targets: ["cadvisor:8080"]
 

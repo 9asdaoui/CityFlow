@@ -7,7 +7,6 @@ RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy service code and model assets (from repo root)
 COPY backend /app/backend
 COPY backend/app.py .
 COPY cityflow_ml_lab/models ./models

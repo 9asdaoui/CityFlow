@@ -87,7 +87,6 @@ export default function AssistantPage() {
                   <ReactMarkdown 
                     components={{
                       h3: ({node, ...props}) => {
-                        // Dynamically render "Sources Consultées" header gracefully as UI styling
                         return <h3 className="text-gold-400 mt-6 mb-3 font-bold uppercase text-xs tracking-widest flex items-center gap-2 before:content-[''] before:w-1 before:h-4 before:bg-gold-500 before:block" {...props} />;
                       },
                       hr: ({node, ...props}) => <hr className="border-t border-dashed border-slate-700/60 my-6" {...props} />,

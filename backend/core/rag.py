@@ -1,4 +1,5 @@
 import os
+import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import torch
@@ -14,19 +15,18 @@ from langchain_core.documents import Document
 from langchain_community.chat_message_histories import SQLChatMessageHistory
 from sqlalchemy import create_engine
 
-# --- MONKEY PATCH FIX FOR TRANSFORMERS IMPORT BUG ---
 import transformers.utils.import_utils
 if not hasattr(transformers.utils.import_utils, 'is_torch_npu_available'):
     transformers.utils.import_utils.is_torch_npu_available = lambda: False
 
-# Fix HuggingFace 10s read timeouts on slow connections or large config checks
 os.environ["HF_HUB_HTTP_TIMEOUT"] = "120"
 
 from FlagEmbedding import FlagReranker
 
+logger = logging.getLogger(__name__)
+
 KNOWLEDGE_BASE_DIR = Path(__file__).parent.parent / "knowledge_base"
 CHROMA_PERSIST_DIR = Path(__file__).parent.parent / "chroma_db"
-# Keep sqlite safely inside the mounted chroma directory to avoid Docker file-as-directory mount bugs
 SQL_MEMORY_URI = f"sqlite:///{CHROMA_PERSIST_DIR / 'memory.db'}"
 SQL_MEMORY_ENGINE = create_engine(SQL_MEMORY_URI)
 
@@ -44,34 +44,30 @@ class RagPipeline:
         else:
             reranker_use_fp16 = use_fp16_env in {"1", "true", "yes", "on"}
 
-        print(f"[RAG] Embedding device: {embedding_device} | Reranker fp16: {reranker_use_fp16}")
+        logger.info("Embedding device: %s | Reranker fp16: %s", embedding_device, reranker_use_fp16)
 
-        # Local HuggingFace Embeddings
         self.embeddings = HuggingFaceEmbeddings(
             model_name="BAAI/bge-m3",
             model_kwargs={'device': embedding_device},
             encode_kwargs={'normalize_embeddings': True}
         )
         
-        # Local Persistent Vector Store
         self.vector_store = Chroma(
             collection_name="cityflow_rag",
             embedding_function=self.embeddings,
             persist_directory=str(CHROMA_PERSIST_DIR)
         )
         
-        # Local Llama3 via Ollama docker
         self.llm = ChatOllama(
             base_url=os.getenv("OLLAMA_HOST", "http://localhost:11434"),
             model="llama3", 
             temperature=0.0
         )
         
-        # BGE Reranker
         try:
             self.reranker = FlagReranker('BAAI/bge-reranker-v2-m3', use_fp16=reranker_use_fp16)
         except Exception as e:
-            print(f"Reranker init failed (this is expected if weights are missing locally): {e}")
+            logger.warning("Reranker init failed: %s", e)
             self.reranker = None
 
     def ingest_documents(self):
@@ -86,9 +82,8 @@ class RagPipeline:
                 os.makedirs(folder_path, exist_ok=True)
                 continue
                 
-            # Iterate through PDFs
             for file_path in folder_path.glob("*.pdf"):
-                print(f"Loading {file_path.name}...")
+                logger.info("Loading %s", file_path.name)
                 loader = PyPDFLoader(str(file_path))
                 docs = loader.load()
                 
@@ -102,9 +97,9 @@ class RagPipeline:
 
         if all_chunks:
             self.vector_store.add_documents(all_chunks)
-            print(f"Successfully ingested {len(all_chunks)} chunks to ChromaDB.")
+            logger.info("Ingested %d chunks to ChromaDB", len(all_chunks))
         else:
-            print("No valid PDFs found to ingest.")
+            logger.warning("No valid PDFs found to ingest")
         
     def _generate_search_queries(self, query: str, history: List[Any]) -> List[str]:
         """Runs a SINGLE LLM call to contextualize the query AND generate 3 variations."""
@@ -155,11 +150,9 @@ class RagPipeline:
         memory = SQLChatMessageHistory(session_id=user_id, connection=SQL_MEMORY_ENGINE)
         history = memory.messages
         
-        # 1. Batched Generation (1 contextual + 3 variations)
         queries = self._generate_search_queries(query, history)
         standalone_query = queries[0] if queries else query
         
-        # 3. Parallel Retrieval & Deduplication (Max 20)
         unique_chunks = {}
         for q in queries:
             results = self.vector_store.similarity_search(q, k=5)
@@ -168,10 +161,8 @@ class RagPipeline:
                 
         all_retrieved_docs = list(unique_chunks.values())[:20]
         
-        # 4. Rerank
         final_docs = self._rerank_and_filter(standalone_query, all_retrieved_docs)
         
-        # 5. Generation with Citations
         context_text = "\n\n".join([f"[Source: {d.metadata.get('source_file')}, Category: {d.metadata.get('category')}]\n{d.page_content}" for d in final_docs])
         
         prompt = ChatPromptTemplate.from_template(
@@ -192,7 +183,6 @@ class RagPipeline:
         chain = prompt | self.llm | StrOutputParser()
         answer = chain.invoke({"context": context_text, "query": standalone_query})
         
-        # 6. Update Memory
         memory.add_user_message(query)
         memory.add_ai_message(answer)
         

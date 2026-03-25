@@ -17,7 +17,6 @@ export function useMapPredictions() {
   const predictPoint = useCallback(async (lat, lng, weather) => {
     if (!weather) return null;
     
-    // Mount a pending marker instantly at the click coordinates
     const newMarkerId = 'm_' + Date.now() + Math.random().toFixed(4);
     setMarkers(prev => [...prev, { id: newMarkerId, lat, lng, loading: true }]);
     
@@ -27,7 +26,6 @@ export function useMapPredictions() {
       now.setMinutes(0, 0, 0);
       const date_time = now.toISOString().replace('T', ' ').slice(0, 19);
 
-      // Fetch precise prediction for this specific latitude & longitude
       const result = await predict({
         date_time,
         temp: weather.temp_k,
@@ -37,7 +35,6 @@ export function useMapPredictions() {
         lng
       });
 
-      // Update the pending marker with real data
       setMarkers(prev => prev.map(m => 
         m.id === newMarkerId 
           ? { ...m, loading: false, tension_score: result.tension_score, model: result.model } 
@@ -48,7 +45,6 @@ export function useMapPredictions() {
       return result;
     } catch (err) {
       setError(err.userMessage || 'Prediction failed');
-      // Prune the pending marker if API completely fails
       setMarkers(prev => prev.filter(m => m.id !== newMarkerId));
       return null;
     } finally {

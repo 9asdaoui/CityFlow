@@ -10,8 +10,6 @@ export default function HistoryPage({ historyLog }) {
     fullTimestamp: h.timestamp
   }));
 
-  // Need to filter out exact duplicate timestamps to make chart continuous 
-  // without overlapping points at the exact same time
   const uniqueChartData = chartData.filter((v,i,a)=>a.findIndex(t=>(t.time === v.time))===i);
 
   return (

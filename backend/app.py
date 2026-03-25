@@ -1,25 +1,27 @@
 import os
+import logging
+import math
 from typing import Optional
 
 import joblib
 import mlflow
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI
-from fastapi import Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
+from pathlib import Path
 
 from backend.database import engine, Base
 from backend.routes.auth_routes import router as auth_router
 from backend.routes.chat_routes import router as chat_router
 from backend.core.auth import get_current_active_user
 from backend.models import User
-from fastapi import Depends
 
-# Create the database tables
+logger = logging.getLogger(__name__)
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="CityFlow Traffic Tension API")
@@ -41,7 +43,6 @@ async def restrict_metrics_endpoint(request: Request, call_next):
             return JSONResponse(status_code=403, content={"detail": "Forbidden"})
     return await call_next(request)
 
-# Allow local frontend development to call this backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -60,9 +61,6 @@ Instrumentator(
     should_ignore_untemplated=False,
     excluded_handlers=["/health", "/metrics"],
 ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
-
-# Load preprocessing and model objects (paths resolved relative to this file)
-from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
 container_models_dir = BASE_DIR.joinpath("models").resolve()
@@ -107,7 +105,6 @@ else:
             f"Model artifacts missing: {PREPROCESSOR_PATH} and/or {MODEL_PATH}"
         )
 
-# These match the training pipeline feature order
 FEATURE_COLS = preprocessor["feature_cols"]
 SCALER_FEATURES = preprocessor["scaler_features"]
 SCALER_TARGET = preprocessor["scaler_target"]
@@ -128,23 +125,22 @@ class PredictionOutput(BaseModel):
 
 
 def apply_spatial_bias(base_score: float, lat: float, lng: float) -> float:
-    """Simulates localized logic for a city-level prediction."""
-    import math
+    """Simulates localized traffic variation based on distance from city center."""
     if lat is None or lng is None:
         return base_score
-        
-    center_lat, center_lng = 33.5731, -7.5898 # Casablanca, Morocco
+
+    center_lat, center_lng = 33.5731, -7.5898
     distance = math.sqrt((lat - center_lat)**2 + (lng - center_lng)**2)
-    
+
     if distance < 0.03:
-        bias = 15.0  # Center: heavy traffic
+        bias = 15.0
     elif distance < 0.08:
-        bias = 0.0   # Mid-ring
+        bias = 0.0
     else:
-        bias = -20.0 # Suburbs
-        
+        bias = -20.0
+
     noise = (math.sin(lat * 5000) + math.cos(lng * 5000)) * 6.0
-    
+
     final_score = base_score + bias + noise
     return max(0.0, min(100.0, final_score))
 
@@ -162,14 +158,12 @@ def preprocess_single(record: PredictionInput) -> np.ndarray:
     df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)
     df["hour_cos"] = np.cos(2 * np.pi * df["hour"] / 24)
 
-    # Cap rain/snow in the same way training did
     df["rain_1h"] = df["rain_1h"].clip(upper=50)
     df["snow_1h"] = df["snow_1h"].clip(upper=50)
 
     feature_values = df[["temp_celsius", "rain_1h", "snow_1h"]].values
     feature_values = SCALER_FEATURES.transform(feature_values)
 
-    # Replace scaled values in dataframe
     df[["temp_celsius", "rain_1h", "snow_1h"]] = feature_values
 
     return df[FEATURE_COLS].values
@@ -185,8 +179,7 @@ def predict(input: PredictionInput, current_user: User = Depends(get_current_act
     X = preprocess_single(input)
     pred = model.predict(X)
     base_score = float(pred[0])
-    
-    # 2. Map Variation Simulation (Deterministic clustering logic)
+
     if input.lat is not None and input.lng is not None:
         final_score = apply_spatial_bias(base_score, float(input.lat), float(input.lng))
     else:
@@ -211,6 +204,6 @@ def predict(input: PredictionInput, current_user: User = Depends(get_current_act
                 )
                 mlflow.log_metric("tension_score", float(final_score))
         except Exception as exc:
-            print(f"[MLflow] predict logging failed: {exc}")
-        
+            logger.warning("MLflow predict logging failed: %s", exc)
+
     return PredictionOutput(tension_score=final_score, model="xgboost_spatial")

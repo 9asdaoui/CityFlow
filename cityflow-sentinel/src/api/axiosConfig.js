@@ -5,14 +5,12 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach JWT from localStorage on every request
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('cf_token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Global error normalization
 api.interceptors.response.use(
   (res) => res,
   (err) => {

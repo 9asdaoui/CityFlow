@@ -7,11 +7,9 @@ import { tensionColor } from '../../utils/tensionColor';
 export default function TensionMarker({ point }) {
   const { lat, lng, tension_score, loading } = point;
   
-  // Pending State uses a slate gray; Loaded State triggers the HSL generator
   const color = loading ? { hex: '#475569' } : tensionColor(tension_score); 
-  const size = 68; // Large custom SVG viewport
+  const size = 68;
   
-  // SVG Injection Template Logic inside the Pin
   const innerContent = loading 
     ? `<circle cx="${size/2}" cy="${size/2 - 12}" r="6" fill="#FFE44B">
          <animate attributeName="opacity" values="1;0.2;1" dur="0.8s" repeatCount="indefinite" />
@@ -52,7 +50,7 @@ export default function TensionMarker({ point }) {
       </style>
     `,
     iconSize: [size, size],
-    iconAnchor: [size/2, size - 4], // Align the needle endpoint exactly to spatial reality 
+    iconAnchor: [size/2, size - 4],
   });
 
   return (

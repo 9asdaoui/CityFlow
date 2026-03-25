@@ -50,7 +50,7 @@ async def get_chat_history(user_id: str, current_user: User = Depends(get_curren
             session_id=user_id,
             connection=create_engine(SQL_MEMORY_URI),
         )
-        messages = memory.messages[-10:] # last 10 messages
+        messages = memory.messages[-10:]
         
         return [{"role": "user" if msg.type == "human" else "assistant", "content": msg.content} for msg in messages]
     except Exception as e:

@@ -61,8 +61,6 @@ export function useChat() {
 
       const data = await response.json();
       
-      // The LLM system prompt is now strictly instructed to output Markdown 
-      // with a "### Sources Consultées" section at the footer natively.
       let assistantText = data.answer;
 
       setMessages(prev => [...prev, { role: 'assistant', content: assistantText }]);

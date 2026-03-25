@@ -7,13 +7,12 @@ import { useWeather } from '../hooks/useWeather';
 import { useMapPredictions } from '../hooks/useMapPredictions';
 
 export default function DashboardPage({ historyLog, setHistoryLog }) {
-  const [mapCenter, setMapCenter] = useState({ lat: 33.5731, lng: -7.5898 }); // Casablanca, Morocco
+  const [mapCenter, setMapCenter] = useState({ lat: 33.5731, lng: -7.5898 });
   const [activeWeather, setActiveWeather] = useState(null);
   const { weather: autoWeather } = useWeather(mapCenter.lat, mapCenter.lng);
   
   const displayWeather = activeWeather || autoWeather;
   
-  // Connect to our refactored Click-based Hook!
   const { markers, error, predictPoint, predictCount, clearMarkers } = useMapPredictions();
 
   const handleBoundsChange = (map) => {
@@ -22,7 +21,6 @@ export default function DashboardPage({ historyLog, setHistoryLog }) {
   };
 
   const handleMapClick = async (latlng) => {
-    // Absolute precision Open-Meteo fetch for the exact click coordinates
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${latlng.lat}&longitude=${latlng.lng}&current=temperature_2m,rain,snowfall&timezone=auto`;
     try {
       const res = await fetch(url);
@@ -35,24 +33,19 @@ export default function DashboardPage({ historyLog, setHistoryLog }) {
         temp_c: c.temperature_2m ?? 15,
       };
       
-      // Override the top-bar visual strip with precise point weather
       setActiveWeather(pointWeather);
       
-      // Dispatch immediately to ML logic
       predictPoint(latlng.lat, latlng.lng, pointWeather);
     } catch {
-      // Fallback
       if (displayWeather) predictPoint(latlng.lat, latlng.lng, displayWeather);
     }
   };
 
-  // LivePanel Integration: Extract info exclusively from the MOST RECENT fully-loaded marker
   const completedMarkers = markers.filter(m => !m.loading);
   const lastMarker = completedMarkers.length > 0 ? completedMarkers[completedMarkers.length - 1] : null;
   const lastScore = lastMarker?.tension_score || null;
   const lastModel = lastMarker?.model || null;
 
-  // Persist newly clicked predictions into the centralized Session Log
   useEffect(() => {
     if (lastScore && displayWeather) {
       const isAlreadyLogged = historyLog?.[0]?.score === lastScore && historyLog?.[0]?.model === lastModel;

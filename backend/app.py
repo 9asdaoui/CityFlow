@@ -1,6 +1,5 @@
 import os
 import logging
-import math
 from typing import Optional
 
 import joblib
@@ -124,27 +123,6 @@ class PredictionOutput(BaseModel):
     model: str
 
 
-def apply_spatial_bias(base_score: float, lat: float, lng: float) -> float:
-    """Simulates localized traffic variation based on distance from city center."""
-    if lat is None or lng is None:
-        return base_score
-
-    center_lat, center_lng = 33.5731, -7.5898
-    distance = math.sqrt((lat - center_lat)**2 + (lng - center_lng)**2)
-
-    if distance < 0.03:
-        bias = 15.0
-    elif distance < 0.08:
-        bias = 0.0
-    else:
-        bias = -20.0
-
-    noise = (math.sin(lat * 5000) + math.cos(lng * 5000)) * 6.0
-
-    final_score = base_score + bias + noise
-    return max(0.0, min(100.0, final_score))
-
-
 def preprocess_single(record: PredictionInput) -> np.ndarray:
     """Convert a single record into the model input vector."""
     df = pd.DataFrame([record.model_dump()])
@@ -178,12 +156,7 @@ def health():
 def predict(input: PredictionInput, current_user: User = Depends(get_current_active_user)):
     X = preprocess_single(input)
     pred = model.predict(X)
-    base_score = float(pred[0])
-
-    if input.lat is not None and input.lng is not None:
-        final_score = apply_spatial_bias(base_score, float(input.lat), float(input.lng))
-    else:
-        final_score = base_score
+    final_score = float(pred[0])
 
     if not DISABLE_MLFLOW:
         try:
@@ -199,11 +172,11 @@ def predict(input: PredictionInput, current_user: User = Depends(get_current_act
                         "lat": float(input.lat) if input.lat is not None else None,
                         "lng": float(input.lng) if input.lng is not None else None,
                         "user": current_user.username,
-                        "model": "xgboost_spatial",
+                        "model": "xgboost",
                     }
                 )
                 mlflow.log_metric("tension_score", float(final_score))
         except Exception as exc:
             logger.warning("MLflow predict logging failed: %s", exc)
 
-    return PredictionOutput(tension_score=final_score, model="xgboost_spatial")
+    return PredictionOutput(tension_score=final_score, model="xgboost")

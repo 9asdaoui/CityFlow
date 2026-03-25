@@ -71,9 +71,31 @@ export function useChat() {
     }
   }, []);
 
-  const clearChat = useCallback(() => {
-    setMessages([]);
-    setError(null);
+  const clearChat = useCallback(async () => {
+    const token = localStorage.getItem('cf_token');
+    const userId = getSessionId();
+
+    try {
+      if (!token) {
+        setError("Session expirée. Reconnectez-vous pour effacer l'historique.");
+        return;
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/chat/history/${userId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Delete failed with status ${response.status}`);
+      }
+
+      setMessages([]);
+      setError(null);
+    } catch (err) {
+      console.warn('Could not clear chat history from backend', err);
+      setError("Échec de suppression côté serveur. Réessayez dans quelques secondes.");
+    }
   }, []);
 
   return { messages, loading, error, sendMessage, clearChat, loadHistory };

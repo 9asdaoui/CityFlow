@@ -43,6 +43,11 @@ class MessageResponse(BaseModel):
     role: str
     content: str
 
+
+class DeleteHistoryResponse(BaseModel):
+    status: str
+    message: str
+
 @router.get("/history/{user_id}", response_model=List[MessageResponse])
 async def get_chat_history(user_id: str, current_user: User = Depends(get_current_active_user)):
     try:
@@ -53,5 +58,21 @@ async def get_chat_history(user_id: str, current_user: User = Depends(get_curren
         messages = memory.messages[-10:]
         
         return [{"role": "user" if msg.type == "human" else "assistant", "content": msg.content} for msg in messages]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/history/{user_id}", response_model=DeleteHistoryResponse)
+async def delete_chat_history(user_id: str, current_user: User = Depends(get_current_active_user)):
+    try:
+        memory = SQLChatMessageHistory(
+            session_id=user_id,
+            connection=create_engine(SQL_MEMORY_URI),
+        )
+        memory.clear()
+        return {
+            "status": "success",
+            "message": "Chat history deleted successfully.",
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

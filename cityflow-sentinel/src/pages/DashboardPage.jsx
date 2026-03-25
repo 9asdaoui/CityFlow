@@ -3,7 +3,7 @@ import SentinelMap from '../components/map/SentinelMap';
 import LivePanel from '../components/prediction/LivePanel';
 import WeatherStrip from '../components/prediction/WeatherStrip';
 import KpiStrip from '../components/prediction/KpiStrip';
-import { useWeather } from '../hooks/useWeather';
+import { useWeather, fetchWeatherAt } from '../hooks/useWeather';
 import { useMapPredictions } from '../hooks/useMapPredictions';
 
 export default function DashboardPage({ historyLog, setHistoryLog }) {
@@ -21,17 +21,8 @@ export default function DashboardPage({ historyLog, setHistoryLog }) {
   };
 
   const handleMapClick = async (latlng) => {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latlng.lat}&longitude=${latlng.lng}&current=temperature_2m,rain,snowfall&timezone=auto`;
     try {
-      const res = await fetch(url);
-      const data = await res.json();
-      const c = data.current;
-      const pointWeather = {
-        temp_k: (c.temperature_2m ?? 15) + 273.15,
-        rain_1h: c.rain ?? 0,
-        snow_1h: c.snowfall ?? 0,
-        temp_c: c.temperature_2m ?? 15,
-      };
+      const pointWeather = await fetchWeatherAt(latlng.lat, latlng.lng);
       
       setActiveWeather(pointWeather);
       

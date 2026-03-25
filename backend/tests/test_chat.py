@@ -24,3 +24,24 @@ def test_chat_history_returns_last_10_messages(client, make_auth_headers, tmp_pa
     assert len(payload) == 10
     assert payload[0]["content"] == "user-1"
     assert payload[-1]["content"] == "assistant-5"
+
+
+def test_delete_chat_history_clears_session_messages(client, make_auth_headers, tmp_path, monkeypatch):
+    chat_routes = importlib.import_module("backend.routes.chat_routes")
+    memory_uri = f"sqlite:///{tmp_path / 'history_delete.db'}"
+    monkeypatch.setattr(chat_routes, "SQL_MEMORY_URI", memory_uri)
+
+    user_id = "history-user-delete"
+    memory = SQLChatMessageHistory(session_id=user_id, connection=create_engine(memory_uri))
+    memory.add_user_message("hello")
+    memory.add_ai_message("hi")
+    assert len(memory.messages) == 2
+
+    headers = make_auth_headers(username="chat_user_delete", password="chat_pass_delete")
+    response = client.delete(f"/chat/history/{user_id}", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+
+    memory_after = SQLChatMessageHistory(session_id=user_id, connection=create_engine(memory_uri))
+    assert memory_after.messages == []
